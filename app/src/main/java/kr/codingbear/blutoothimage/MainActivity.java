@@ -168,6 +168,8 @@ public class MainActivity extends AppCompatActivity {
                                 text_status_.setTextColor(Color.parseColor("#037e32"));
                             }
                         });
+                    } else {
+                        bluetoothDevice_ = null;
                     }
                     runOnUiThread(new Runnable() {
                         @Override
