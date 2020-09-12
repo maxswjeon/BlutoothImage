@@ -7,7 +7,6 @@ import android.bluetooth.BluetoothSocket;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.view.View;
@@ -19,13 +18,8 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-import java.io.BufferedWriter;
-import java.io.DataInputStream;
 import java.io.IOException;
-import java.io.OutputStreamWriter;
-import java.util.Locale;
 import java.util.Set;
-import java.util.UUID;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -55,11 +49,7 @@ public class MainActivity extends AppCompatActivity {
         button_send_.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                try {
-                    onButtonSendClick();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
+                onButtonSendClick();
             }
         });
 
@@ -98,12 +88,9 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
-    private void onButtonSendClick() throws IOException {
-        long start = System.currentTimeMillis();
-        DataInputStream inputStream_ = new DataInputStream(bluetoothSocket_.getInputStream());
-        BufferedWriter outputStream_ = new BufferedWriter(new OutputStreamWriter(bluetoothSocket_.getOutputStream()));
-
+    private void onButtonSendClick() {
         int quality = 10;
+
         String quality_raw = input_quality_.getText().toString();
         if (!quality_raw.equals("")) {
             quality = Integer.parseInt(quality_raw);
@@ -115,22 +102,31 @@ public class MainActivity extends AppCompatActivity {
             quality = 100;
         }
 
-        outputStream_.write(String.format(Locale.US, "{\"command\":\"give\",\"quality\":%d}\n", quality));
-        outputStream_.flush();
+        new BluetoothTask.ImageDownload(new BluetoothTask.OnImageDownloadFinishListener() {
+            @Override
+            public void onFinish(final Bitmap bitmap) {
+                if (bitmap == null) {
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            Toast.makeText(MainActivity.this,
+                                    "Error while downloading Image",
+                                    Toast.LENGTH_SHORT).show();
+                        }
+                    });
+                    return;
+                }
 
-        int size = inputStream_.readInt();
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        view_image_.setImageBitmap(bitmap);
+                        view_image_.setVisibility(View.VISIBLE);
+                    }
+                });
+            }
+        }).execute(bluetoothSocket_, quality);
 
-        byte[] data = new byte[size];
-        inputStream_.readFully(data);
-
-        Bitmap decodedBitmap = BitmapFactory.decodeByteArray(data, 0, size);
-
-        view_image_.setImageBitmap(decodedBitmap);
-        long dur = System.currentTimeMillis() - start;
-
-        Toast.makeText(this, "Duration : " + dur + "ms", Toast.LENGTH_SHORT).show();
-
-        view_image_.setVisibility(View.VISIBLE);
     }
 
     private void onButtonConnectClick() throws IOException {
@@ -138,11 +134,12 @@ public class MainActivity extends AppCompatActivity {
             bluetoothSocket_.close();
             button_connect_.setText(R.string.connect);
             bluetoothDevice_ = null;
-            button_send_.setEnabled(false);
             view_image_.setVisibility(View.INVISIBLE);
             text_status_.setText(R.string.not_connected);
             text_status_.setTextColor(Color.RED);
+            button_send_.setEnabled(false);
         } else {
+            button_connect_.setEnabled(false);
             Set<BluetoothDevice> devices = bluetoothAdapter_.getBondedDevices();
             if (devices.size() > 0) {
                 for (BluetoothDevice device : devices) {
@@ -157,14 +154,29 @@ public class MainActivity extends AppCompatActivity {
                 return;
             }
 
-            UUID uuid = UUID.fromString("94f39d29-7d6d-437d-973b-fba39e49d4ee");
-            bluetoothSocket_ = bluetoothDevice_.createRfcommSocketToServiceRecord(uuid);
-            bluetoothSocket_.connect();
-
-            button_send_.setEnabled(true);
-            button_connect_.setText(R.string.disconnect);
-            text_status_.setText(R.string.connected);
-            text_status_.setTextColor(Color.parseColor("#037e32"));
+            new BluetoothTask.Connect(new BluetoothTask.OnConnectFinishListener() {
+                @Override
+                public void onFinish(BluetoothSocket socket) {
+                    if (socket != null) {
+                        bluetoothSocket_ = socket;
+                        runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                button_send_.setEnabled(true);
+                                button_connect_.setText(R.string.disconnect);
+                                text_status_.setText(R.string.connected);
+                                text_status_.setTextColor(Color.parseColor("#037e32"));
+                            }
+                        });
+                    }
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            button_connect_.setEnabled(true);
+                        }
+                    });
+                }
+            }).execute(bluetoothDevice_);
         }
     }
 }
