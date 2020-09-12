@@ -1,6 +1,6 @@
 <resources>
     <string name="app_name">Blutooth Image</string>
-    <string name="main_label_status">Status :</string>
+    <string name="main_label_status">Status :&nbsp;</string>
     <string name="not_connected">Not Connected</string>
     <string name="get_picture">Get Picture</string>
     <string name="connect">Connect</string>
