@@ -9,6 +9,7 @@ import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
@@ -19,9 +20,14 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Set;
 
+import kr.codingbear.blutoothimage.tensorflow.Classifier;
+
 public class MainActivity extends AppCompatActivity {
+
+    private String TAG = "MainActivity";
 
     BluetoothAdapter bluetoothAdapter_;
     BluetoothSocket bluetoothSocket_ = null;
@@ -33,7 +39,12 @@ public class MainActivity extends AppCompatActivity {
     private ImageView view_image_;
     private EditText input_quality_;
 
-    private StringBuilder logger;
+    private Classifier classifier_;
+
+    // TODO: Change It!
+    private Classifier.Model model_ = Classifier.Model.QUANTIZED_EFFICIENTNET;
+    private Classifier.Device device_ = Classifier.Device.CPU;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -86,6 +97,7 @@ public class MainActivity extends AppCompatActivity {
             startActivity(enableBluetooth);
         }
 
+        initClassifier();
     }
 
     private void onButtonSendClick() {
@@ -117,9 +129,15 @@ public class MainActivity extends AppCompatActivity {
                     return;
                 }
 
+                final List<Classifier.Recognition> result = classifier_.recognizeImage(bitmap, 270);
+
+                //TODO:여기에 TTS 추가
+
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
+
+
                         view_image_.setImageBitmap(bitmap);
                         view_image_.setVisibility(View.VISIBLE);
                     }
@@ -154,6 +172,7 @@ public class MainActivity extends AppCompatActivity {
                 return;
             }
 
+
             new BluetoothTask.Connect(new BluetoothTask.OnConnectFinishListener() {
                 @Override
                 public void onFinish(BluetoothSocket socket) {
@@ -180,5 +199,40 @@ public class MainActivity extends AppCompatActivity {
                 }
             }).execute(bluetoothDevice_);
         }
+    }
+
+    private void initClassifier() {
+        recreateClassifier(model_, device_, 4);
+    }
+
+    private Boolean recreateClassifier(Classifier.Model model, Classifier.Device device, int numThreads) {
+        if (classifier_ != null) {
+            Log.d(TAG, "Closing classifier.");
+            classifier_.close();
+            classifier_ = null;
+        }
+
+        if (device == Classifier.Device.GPU
+                && (model == Classifier.Model.QUANTIZED_MOBILENET || model == Classifier.Model.QUANTIZED_EFFICIENTNET)) {
+            Log.d(TAG, "Not creating classifier: GPU doesn't support quantized models.");
+            runOnUiThread(
+                    () -> {
+                        Toast.makeText(this, R.string.tfe_ic_gpu_quant_error, Toast.LENGTH_LONG).show();
+                    });
+            return false;
+        }
+        try {
+            Log.d(TAG, String.format(
+                    "Creating classifier (model=%s, device=%s, numThreads=%d)", model, device, numThreads));
+            classifier_ = Classifier.create(this, model, device, numThreads);
+        } catch (IOException e) {
+            Log.e(TAG, "Failed to create classifier.");
+            return false;
+        }
+
+        return true;
+        // Updates the input image size.
+        // imageSizeX = classifier.getImageSizeX();
+        // imageSizeY = classifier.getImageSizeY();
     }
 }

@@ -23,7 +23,7 @@ public class BluetoothTask {
         void onFinish(final Bitmap bitmap);
     }
 
-    public static class Connect extends AsyncTask<BluetoothDevice, Integer, BluetoothSocket> {
+    public static class Connect extends AsyncTask<BluetoothDevice, Void, BluetoothSocket> {
         private OnConnectFinishListener listener_;
 
         public Connect(OnConnectFinishListener listener) {
@@ -54,7 +54,7 @@ public class BluetoothTask {
     }
 
 
-    public static class ImageDownload extends AsyncTask<Object, Integer, Bitmap> {
+    public static class ImageDownload extends AsyncTask<Object, Void, Bitmap> {
         private OnImageDownloadFinishListener listener_;
 
         public ImageDownload(OnImageDownloadFinishListener listener) {
@@ -87,6 +87,7 @@ public class BluetoothTask {
         }
 
         @Override
+
         protected void onPostExecute(Bitmap bitmap) {
             listener_.onFinish(bitmap);
         }
